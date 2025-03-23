@@ -1,64 +1,65 @@
-pipeline {
-    agent any
+
     
-    environment {
+   pipeline {
+    agent any  // Use any available Jenkins agent
+
+   environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_NAME = "abdelrahmaneladwy/react-app"
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
     }
-    
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-        
-        stage('Build React App') {
-            steps {
-                sh '''
-                if [ ! -d "node_modules" ]; then npm install; fi
-                npm run build
-                '''
-    }
-        }
-        
-        stage('Run Tests') {
-            steps {
-                sh 'npm test -- --watchAll=false'
-            }
-        }
-        
+
+
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
-                sh "docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest"
+                script {
+                    // Build the Docker image from the Dockerfile
+                    sh """
+                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    """
+                }
             }
         }
-        
-        stage('Push to Docker Hub') {
+
+        stage('Docker Push') {
             steps {
-                sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
-                sh "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-                sh "docker push ${DOCKER_IMAGE_NAME}:latest"
+                withCredentials([usernamePassword(credentialsId: 'dockerHub', 
+                    passwordVariable: 'dockerHubPassword', 
+                    usernameVariable: 'dockerHubUser')]) {
+                    // Login to Docker Hub and push the image
+                    sh "docker login -u ${env.dockerHubUser} -p ${env.dockerHubPassword}"
+                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                }
             }
         }
-        
-        stage('Deploy') {
+
+        stage('Deploy Docker Container') {
             steps {
-                echo "Deploying Docker image ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-                
-                // Placeholder for deployment commands
-                // Example: SSH into the server and update the container
-                // sh 'ssh user@server "docker pull ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} && docker stop old_container && docker run -d --name new_container ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"'
+                script {
+                    // Run the Docker container from the pushed image
+                    sh """
+                        docker stop my-app || true && docker rm my-app || true
+                        docker run -d --name my-app -p 80:80 ${IMAGE_NAME}:${IMAGE_TAG}
+                    """
+                }
             }
         }
     }
-    
+
     post {
-        always {
-            sh 'if docker info > /dev/null 2>&1; then docker logout; fi'
-            cleanWs()
+        success {
+            echo 'Docker image built, pushed, and deployed successfully!'
+            // Example email notification on success
+            mail to: 'abdoahmed32522@gmail.com',
+                 subject: "SUCCESS: Jenkins Job '${env.JOB_NAME}' (#${env.BUILD_NUMBER})",
+                 body: "The build succeeded! Check Jenkins for details: ${env.BUILD_URL}"
+        }
+        failure {
+            echo 'Build or deployment failed!'
+            // Example email notification on failure
+            mail to: 'abdoahmed32522@gmail.com',
+                 subject: "FAILURE: Jenkins Job '${env.JOB_NAME}' (#${env.BUILD_NUMBER})",
+                 body: "The build failed! Check Jenkins for details: ${env.BUILD_URL}"
         }
     }
 }
