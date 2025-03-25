@@ -97,12 +97,10 @@ The application is deployed using Nginx, serving the React build files from `/us
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Your Name - your.email@example.com
+Abdelrahman Eladwy - abdoahmed32522@gmail.com
 
-Project Link: [https://github.com/yourusername/react-docker-example](https://github.com/yourusername/react-docker-example)
+Project Link: (https://github.com/yourusername/react-docker-example)
